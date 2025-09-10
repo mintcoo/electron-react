@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { ChangeEvent, useState } from 'react';
 import { read, utils } from 'xlsx';
 
 function Home() {
@@ -27,7 +27,7 @@ function Home() {
   };
 
   const handleExcelFileChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
+    e: ChangeEvent<HTMLInputElement>,
     type: string,
   ) => {
     if (!e.target.files) return;
@@ -46,9 +46,9 @@ function Home() {
         }}
       />
       <div className="flex">
-        {uploadedOneFileData.map((el, index) => {
+        {uploadedOneFileData.map((el) => {
           return (
-            <div key={index} className="text-black min-w-20">
+            <div key={el.이름} className="text-black min-w-20">
               {el.이름}
             </div>
           );
@@ -62,9 +62,9 @@ function Home() {
         }}
       />
       <div className="flex">
-        {uploadedTwoFileData.map((el, index) => {
+        {uploadedTwoFileData.map((el) => {
           return (
-            <div key={index} className="text-black min-w-20">
+            <div key={el.직급} className="text-black min-w-20">
               {el.직급}
             </div>
           );
