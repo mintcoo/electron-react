@@ -1,5 +1,7 @@
 import { ChangeEvent, useState } from 'react';
 import { read, utils } from 'xlsx';
+import ExcelUploader from './common/ExcelUploader';
+import { FILE_NAMES } from '../../constants/fileNames';
 
 function Home() {
   const [uploadedOneFileData, setUploadedOneFileData] = useState<any[]>([]);
@@ -15,10 +17,10 @@ function Home() {
     const data: any[] = utils.sheet_to_json<any>(ws);
     console.log(data, 'ㅇㅇ');
     switch (type) {
-      case 'one':
+      case FILE_NAMES.ONE:
         setUploadedOneFileData(data);
         break;
-      case 'two':
+      case FILE_NAMES.TWO:
         setUploadedTwoFileData(data);
         break;
       default:
@@ -36,40 +38,10 @@ function Home() {
   };
 
   return (
-    <div>
-      <h1 className="text-center text-white bg-red-300">엑셀 업로드 테스트</h1>
-      <input
-        type="file"
-        id="excelFile"
-        onChange={(event) => {
-          handleExcelFileChange(event, 'one');
-        }}
-      />
-      <div className="flex">
-        {uploadedOneFileData.map((el) => {
-          return (
-            <div key={el.이름} className="text-black min-w-20">
-              {el.이름}
-            </div>
-          );
-        })}
-      </div>
-      <input
-        type="file"
-        id="excelFile"
-        onChange={(event) => {
-          handleExcelFileChange(event, 'two');
-        }}
-      />
-      <div className="flex">
-        {uploadedTwoFileData.map((el) => {
-          return (
-            <div key={el.직급} className="text-black min-w-20">
-              {el.직급}
-            </div>
-          );
-        })}
-      </div>
+    <div className="flex flex-col gap-2">
+      <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.ONE} />
+
+      <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.TWO} />
     </div>
   );
 }
