@@ -28,20 +28,12 @@ function Home() {
     }
   };
 
-  const handleExcelFileChange = (
-    e: ChangeEvent<HTMLInputElement>,
-    type: string,
-  ) => {
-    if (!e.target.files) return;
-    const file = e.target.files[0];
-    readExcel(file, type);
-  };
-
   return (
     <div className="flex flex-col gap-2">
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.ONE} />
-
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.TWO} />
+      <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.THREE} />
+      <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.FOUR} />
     </div>
   );
 }
