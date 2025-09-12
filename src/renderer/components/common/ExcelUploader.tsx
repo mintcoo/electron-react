@@ -15,7 +15,7 @@ function ExcelUploader({ readExcel, fileName }: IExcelUploaderProps) {
 
   return (
     <div>
-      <h1 className="text-left text-white bg-red-300">{fileName}</h1>
+      <h1 className="text-left text-white bg-sky-500">{fileName}</h1>
       <input
         type="file"
         id="excelFile"

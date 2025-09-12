@@ -28,12 +28,23 @@ function Home() {
     }
   };
 
+  const downloadExcel = () => {
+    console.log('엑셀 다운로드');
+  };
+
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 w-full md:w-1/2">
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.ONE} />
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.TWO} />
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.THREE} />
       <ExcelUploader readExcel={readExcel} fileName={FILE_NAMES.FOUR} />
+      <button
+        type="button"
+        className="px-2 py-1 mx-auto mt-4 w-40 text-white bg-green-500 rounded-md hover:bg-green-600"
+        onClick={downloadExcel}
+      >
+        Excel Download
+      </button>
     </div>
   );
 }
