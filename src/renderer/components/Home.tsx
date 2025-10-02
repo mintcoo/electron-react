@@ -1,7 +1,8 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { read, utils } from 'xlsx';
 import ExcelUploader from './common/ExcelUploader';
 import { FILE_NAMES } from '../../constants/fileNames';
+import ReadFirstFile from './common/ReadFirstFile';
 
 function Home() {
   const [uploadedOneFileData, setUploadedOneFileData] = useState<any[]>([]);
@@ -15,11 +16,14 @@ function Home() {
 
     const ws = wb.Sheets[wb.SheetNames[0]];
     const data: any[] = utils.sheet_to_json<any>(ws);
-    console.log(data, 'ㅇㅇ');
+    console.log(data, '원본데이터');
     switch (type) {
-      case FILE_NAMES.ONE:
-        setUploadedOneFileData(data);
+      case FILE_NAMES.ONE: {
+        const processedData = ReadFirstFile(data);
+        console.log(processedData, '가공된 첫번째 데이터');
+        setUploadedOneFileData(processedData); // data 대신 processedData 사용
         break;
+      }
       case FILE_NAMES.TWO:
         setUploadedTwoFileData(data);
         break;
@@ -31,6 +35,11 @@ function Home() {
   const downloadExcel = () => {
     console.log('엑셀 다운로드');
   };
+
+  // useEffect(() => {
+  //   const processedData = ReadFirstFile(uploadedOneFileData);
+  //   console.log(processedData, '가공된데이터');
+  // }, [uploadedOneFileData]);
 
   return (
     <div className="flex flex-col gap-2 w-full md:w-1/2">

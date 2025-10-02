@@ -20,6 +20,7 @@ module.exports = {
         endOfLine: 'auto',
       },
     ],
+    'dot-notation': 'off',
   },
   parserOptions: {
     ecmaVersion: 2022,
