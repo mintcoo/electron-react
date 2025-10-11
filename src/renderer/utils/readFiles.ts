@@ -1,6 +1,6 @@
 import { read, utils } from 'xlsx';
 
-function ReadFirstFile(data: any[]): any[] {
+export function readFirstFile(data: any[]): any[] {
   let lastDepartment = '';
 
   if (data.length === 0) return [];
@@ -40,5 +40,3 @@ function ReadFirstFile(data: any[]): any[] {
 
   return processedData;
 }
-
-export default ReadFirstFile;

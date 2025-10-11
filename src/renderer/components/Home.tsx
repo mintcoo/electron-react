@@ -2,7 +2,7 @@ import { ChangeEvent, useEffect, useState } from 'react';
 import { read, utils } from 'xlsx';
 import ExcelUploader from './common/ExcelUploader';
 import { FILE_NAMES } from '../../constants/fileNames';
-import ReadFirstFile from './common/ReadFirstFile';
+import { readFirstFile } from '../utils/readFiles';
 
 function Home() {
   const [uploadedOneFileData, setUploadedOneFileData] = useState<any[]>([]);
@@ -19,7 +19,7 @@ function Home() {
     console.log(data, '원본데이터');
     switch (type) {
       case FILE_NAMES.ONE: {
-        const processedData = ReadFirstFile(data);
+        const processedData = readFirstFile(data);
         console.log(processedData, '가공된 첫번째 데이터');
         setUploadedOneFileData(processedData); // data 대신 processedData 사용
         break;
