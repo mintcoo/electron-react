@@ -7,36 +7,34 @@ function ReadFirstFile(data: any[]): any[] {
 
   // 첫 번째 행을 헤더로 사용
   const headerRow = data[0];
-  const dataRows = data.slice(1); // 두 번째 행부터가 실제 데이터
+  const dataRows = data.slice(1);
 
-  // 헤더 매핑 객체 생성
-  const headerMapping: { [key: string]: string } = {};
-  Object.keys(headerRow).forEach((key) => {
-    headerMapping[key] = headerRow[key];
-  });
+  // 헤더 키 찾기
+  const keys = Object.keys(headerRow);
+  const numberKey = keys[0]; // 첫 번째 컬럼 (번호)
+  const departmentKey = keys[1]; // 두 번째 컬럼 (소속)
+  const nameKey = keys[2]; // 세 번째 컬럼 (이름)
 
-  // 데이터 변환
   const processedData = dataRows.map((row) => {
-    const currentDepartment = row['__EMPTY'];
+    const currentDepartment = row[departmentKey];
 
-    // 소속이 있으면 업데이트, 없으면 이전 소속 사용
     if (currentDepartment && currentDepartment.trim() !== '') {
       lastDepartment = currentDepartment;
     }
 
     return {
-      번호: row['임직원 유연근무 현황 (2025. 9. 5. 기준)'],
-      소속: lastDepartment, // 현재 또는 이전 소속 사용
-      이름: row['__EMPTY_1'],
-      직책: row['__EMPTY_2'],
-      월요일: row['__EMPTY_3'],
-      화요일: row['__EMPTY_4'],
-      수요일: row['__EMPTY_5'],
-      목요일: row['__EMPTY_6'],
-      금요일: row['__EMPTY_7'],
-      기간: row['__EMPTY_8'],
-      직급: row['__EMPTY_9'],
-      직급2: row['__EMPTY_10'],
+      번호: row[numberKey],
+      소속: lastDepartment,
+      이름: row[nameKey],
+      직책: row[keys[3]],
+      월요일: row[keys[4]],
+      화요일: row[keys[5]],
+      수요일: row[keys[6]],
+      목요일: row[keys[7]],
+      금요일: row[keys[8]],
+      기간: row[keys[9]],
+      직급: row[keys[10]],
+      직급2: row[keys[11]],
     };
   });
 
