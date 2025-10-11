@@ -9,6 +9,7 @@ function Home() {
   const [uploadedTwoFileData, setUploadedTwoFileData] = useState<any[]>([]);
 
   const readExcel = async (file: File, type: string) => {
+    if (!file) return;
     const ab = await file.arrayBuffer();
 
     /* parse */
