@@ -3,10 +3,13 @@ import { read, utils } from 'xlsx';
 import ExcelUploader from './common/ExcelUploader';
 import { FILE_NAMES } from '../../constants/fileNames';
 import { readFirstFile } from '../utils/readFiles';
+import { calcData } from '../utils/calcData';
 
 function Home() {
-  const [uploadedOneFileData, setUploadedOneFileData] = useState<any[]>([]);
+  const [uploadedOneFileData, setUploadedOneFileData] = useState<any>({});
   const [uploadedTwoFileData, setUploadedTwoFileData] = useState<any[]>([]);
+  const [uploadedThreeFileData, setUploadedThreeFileData] = useState<any[]>([]);
+  const [uploadedFourFileData, setUploadedFourFileData] = useState<any[]>([]);
 
   const readExcel = async (file: File, type: string) => {
     if (!file) return;
@@ -28,12 +31,24 @@ function Home() {
       case FILE_NAMES.TWO:
         setUploadedTwoFileData(data);
         break;
+      case FILE_NAMES.THREE:
+        setUploadedThreeFileData(data);
+        break;
+      case FILE_NAMES.FOUR:
+        setUploadedFourFileData(data);
+        break;
       default:
         console.log('노데이터');
     }
   };
 
   const downloadExcel = () => {
+    calcData({
+      workTimes: uploadedOneFileData,
+      workHistory: uploadedTwoFileData,
+      approveOvertime: uploadedThreeFileData,
+      overtimeDetail: uploadedFourFileData,
+    });
     console.log('엑셀 다운로드');
   };
 

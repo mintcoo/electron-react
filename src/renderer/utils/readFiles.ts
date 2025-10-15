@@ -1,31 +1,32 @@
-import { read, utils } from 'xlsx';
-
-export function readFirstFile(data: any[]): any[] {
+export function readFirstFile(data: any[]): Record<string, any> {
   let lastDepartment = '';
 
-  if (data.length === 0) return [];
+  if (data.length === 0) return {};
 
-  // 첫 번째 행을 헤더로 사용
   const headerRow = data[0];
   const dataRows = data.slice(1);
 
-  // 헤더 키 찾기
   const keys = Object.keys(headerRow);
-  const numberKey = keys[0]; // 첫 번째 컬럼 (번호)
-  const departmentKey = keys[1]; // 두 번째 컬럼 (소속)
-  const nameKey = keys[2]; // 세 번째 컬럼 (이름)
+  const numberKey = keys[0];
+  const departmentKey = keys[1];
+  const nameKey = keys[2];
 
-  const processedData = dataRows.map((row) => {
+  const result: Record<string, any> = {};
+
+  dataRows.forEach((row) => {
     const currentDepartment = row[departmentKey];
 
     if (currentDepartment && currentDepartment.trim() !== '') {
       lastDepartment = currentDepartment;
     }
 
-    return {
+    const name = row[nameKey];
+    const key = `${lastDepartment}_${name}`;
+
+    result[key] = {
       번호: row[numberKey],
       소속: lastDepartment,
-      이름: row[nameKey],
+      이름: name,
       직책: row[keys[3]],
       월요일: row[keys[4]],
       화요일: row[keys[5]],
@@ -38,5 +39,5 @@ export function readFirstFile(data: any[]): any[] {
     };
   });
 
-  return processedData;
+  return result;
 }
