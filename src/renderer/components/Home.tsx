@@ -6,6 +6,7 @@ import { readFirstFile } from '../utils/readFiles';
 import { calcData } from '../utils/calcData';
 
 function Home() {
+  const [errorMessages, setErrorMessages] = useState<string[]>([]);
   const [uploadedOneFileData, setUploadedOneFileData] = useState<any>({});
   const [uploadedTwoFileData, setUploadedTwoFileData] = useState<any[]>([]);
   const [uploadedThreeFileData, setUploadedThreeFileData] = useState<any[]>([]);
@@ -43,12 +44,13 @@ function Home() {
   };
 
   const downloadExcel = () => {
-    calcData({
+    const messages = calcData({
       workTimes: uploadedOneFileData,
       workHistory: uploadedTwoFileData,
       approveOvertime: uploadedThreeFileData,
-      overtimeDetail: uploadedFourFileData,
+      overtimeInfo: uploadedFourFileData,
     });
+    setErrorMessages(messages);
     console.log('엑셀 다운로드');
   };
 
@@ -70,6 +72,11 @@ function Home() {
       >
         Excel Download
       </button>
+      {errorMessages.map((message) => (
+        <div key={message} className="text-red-500">
+          {message}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,14 +1,62 @@
 import { utils, writeFile } from 'xlsx-js-style';
 
-// 여러개의 시트로 구성 가능한 엑셀 (Array Data)
-export function excelExport({
-  dataSet,
+// 단일 시트만 가능 (Array Data)
+export function singleExcelExport({
+  data,
   fileName,
   extendWidth,
   reduceWidth,
   adjustLength,
   allColumnsLength,
 }: any) {
+  const worksheet = utils.aoa_to_sheet(data);
+  const workbook = utils.book_new();
+  // 엑셀 너비 조정
+  if (extendWidth) {
+    // 조정할 컬럼 길이가 없으면 첫번째 Row의 데이터 길이로
+    const columnsLength = adjustLength
+      ? adjustLength
+      : Object.keys(data[0]).length;
+    const cols = [];
+
+    for (let i = 0; i < allColumnsLength; i++) {
+      if (i < columnsLength) {
+        cols.push({ wch: extendWidth });
+      } else {
+        cols.push({ wch: reduceWidth });
+      }
+    }
+    // 너비를 width 값으로 조정
+    worksheet['!cols'] = cols;
+  }
+
+  // 각 column 길이 체크 후 너비 세팅
+  // const cols = [];
+  // for (let i = 0; i < data[0].length; i++) {
+  //   let max_length = 3;
+  //   for (let j = 0; j < data.length; j++) {
+  //     if (data[j][i]?.v && typeof data[j][i]?.v === "string" && max_length < data[j][i].v.length) {
+  //       max_length = data[j][i].v.length <= 20 ? 20 : data[j][i].v.length;
+  //     }
+  //   }
+  //   cols.push({ wch: max_length });
+  // }
+
+  // worksheet["!cols"] = cols;
+
+  utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+  writeFile(workbook, fileName + '.xlsx');
+}
+
+// 여러개의 시트로 구성 가능한 엑셀 (Array Data)
+export function multiExcelExport(
+  dataSet: any[],
+  fileName: string,
+  extendWidth: number,
+  reduceWidth: number,
+  adjustLength: number,
+  allColumnsLength: number,
+) {
   const workbook = utils.book_new();
 
   for (let i = 0; i < dataSet.length; i += 1) {
@@ -188,21 +236,36 @@ export function changeCellStyle({
   font,
 }: any) {
   const newDataList: any[] = [];
+  console.log(data, 'data');
 
-  data.forEach((el: any) => {
-    if (el === '') {
-      newDataList.push(el);
-    } else {
-      const cellData = setCellStyle({
-        el,
-        fill,
-        align,
-        borderDirection,
-        numFormat,
-        font,
-      });
-      newDataList.push(cellData);
-    }
-  });
-  return newDataList;
+  // 데이터가 배열인지 단일인지 체크
+  if (Array.isArray(data)) {
+    console.log('배열');
+    data.forEach((el) => {
+      if (el === '') {
+        newDataList.push(el);
+      } else {
+        const cellData = setCellStyle({
+          data: el,
+          fill,
+          align,
+          borderDirection,
+          numFormat,
+          font,
+        });
+        newDataList.push(cellData);
+      }
+    });
+    return newDataList;
+  } else {
+    const cellData = setCellStyle({
+      data,
+      fill,
+      align,
+      borderDirection,
+      numFormat,
+      font,
+    });
+    return cellData;
+  }
 }

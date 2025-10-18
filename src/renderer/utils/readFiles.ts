@@ -21,9 +21,8 @@ export function readFirstFile(data: any[]): Record<string, any> {
     }
 
     const name = row[nameKey];
-    const key = `${lastDepartment}_${name}`;
 
-    result[key] = {
+    result[name] = {
       번호: row[numberKey],
       소속: lastDepartment,
       이름: name,

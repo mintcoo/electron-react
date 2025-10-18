@@ -1,20 +1,125 @@
+import { changeCellStyle, singleExcelExport } from './makeExcel';
+
 interface ICalcDataProps {
   workTimes: any[];
   workHistory?: any[];
   approveOvertime: any[];
-  overtimeDetail: any[];
+  overtimeInfo: any[];
 }
 
+// 요일 가져오기
+function getDayOfWeek(dateString: string): string {
+  const date = new Date(dateString);
+  const weekdays = [
+    '일요일',
+    '월요일',
+    '화요일',
+    '수요일',
+    '목요일',
+    '금요일',
+    '토요일',
+  ];
+  return weekdays[date.getDay()];
+}
+
+// 시간을 분으로 변환
+function timeToMinutes(time: string): number {
+  const [hours, minutes] = time.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+// 데이터 시간 외 근무 계산
 export function calcData({
   workTimes,
   workHistory,
   approveOvertime,
-  overtimeDetail,
+  overtimeInfo,
 }: ICalcDataProps) {
-  console.log(workTimes, 'workTimes');
-  console.log(overtimeDetail, 'overtimeDetail');
+  const errorMessages: string[] = [];
+  // // 데이터 들어갈 충분한 컬럼의 길이 상수
+  // const COLUMNS_LENGTH = 50;
+  // let START_INDEX = 0;
+  // // 빈 Row
+  // const emptyRow = Array(COLUMNS_LENGTH).fill('');
+  // 엑셀 만들 데이터
+  const excelData = [];
 
-  return null;
+  overtimeInfo.forEach((overtime, index) => {
+    const workSchedule = workTimes[overtime.이름];
+    // 요일
+    const dayOfWeek = getDayOfWeek(overtime.근무일자);
+    // overtime.이름이 key로 존재하고, 그 안의 소속이 overtime.부서와 같은지 확인
+    if (index === 0 && workSchedule?.소속 === overtime.부서) {
+      console.log(workSchedule, 'target');
+      console.log(overtime, 'overtime');
+      console.log(workSchedule[dayOfWeek], '요일');
+      console.log();
+
+      const scheduleTime = workSchedule[dayOfWeek];
+      const startTime = scheduleTime.split('~')[0]; // 근무 시작 시간
+      const endTime = scheduleTime.split('~')[1]; // 근무 종료 시간
+      console.log(startTime, endTime, 'startTime, endTime');
+      switch (overtime.근무구분) {
+        case '연장': {
+          // 1. 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
+          const workEndTime = timeToMinutes(endTime);
+          const requestStartTime = timeToMinutes(overtime.신청시작시간);
+          const timeDiff = requestStartTime - workEndTime;
+
+          if (timeDiff < 60) {
+            errorMessages.push(
+              `❌ [연장] 규칙 위반: ${overtime.이름} ${overtime.근무일자}`,
+            );
+          } else {
+            console.log(`✅ [연장] 규칙 통과: 근무 종료 후 ${timeDiff}분 경과`);
+          }
+          break;
+        }
+        case '조기': {
+          break;
+        }
+      }
+    }
+  });
+
+  // excelData.push([...emptyRow]);
+
+  // const STAFF_INFO_TITLE = [
+  //   '번호',
+  //   '소속',
+  //   '이름',
+  //   '직책',
+  //   '월요일',
+  //   '화요일',
+  //   '수요일',
+  //   '목요일',
+  //   '금요일',
+  //   '기간',
+  //   '직급',
+  //   '직급2',
+  // ];
+  // excelData.push(
+  //   changeCellStyle({ data: STAFF_INFO_TITLE, fill: 'lightGray' }),
+  // );
+  // 첫 번째 시트 데이터
+
+  // excelData.push(
+  //   changeCellStyle({
+  //     data: ['배수', '분환산', '시간환산', '인정시간', '특근매식'],
+  //     fill: 'lightBlue',
+  //   }),
+  // );
+
+  // singleExcelExport({
+  //   data: excelData,
+  //   fileName: '임직원_유연근무_현황',
+  //   extendWidth: 10,
+  //   reduceWidth: 10,
+  //   adjustLength: 10,
+  //   allColumnsLength: 10,
+  // });
+
+  return errorMessages;
 }
 
 // PT 수당 내역 엑셀
