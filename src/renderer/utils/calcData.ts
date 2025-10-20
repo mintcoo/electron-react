@@ -28,6 +28,24 @@ function timeToMinutes(time: string): number {
   return hours * 60 + minutes;
 }
 
+// 시간 차이 계산
+function calcTimeDiff(startTime: string, endTime: string): number {
+  let startMinutes = timeToMinutes(startTime);
+  let endMinutes = timeToMinutes(endTime);
+  console.log(startMinutes, endMinutes, 'startMinuteㅋㅋㅋㅋs, endMinutes');
+
+  // 종료시간이 시작시간보다 작으면 자정을 넘긴 것
+  if (endMinutes < startMinutes) {
+    endMinutes += 24 * 60; // 24시간 추가
+  }
+
+  // 시간 차이가 60분 미만이면 0을 반환
+  if (endMinutes - startMinutes < 60) {
+    return 0;
+  }
+  return endMinutes - startMinutes;
+}
+
 // 데이터 시간 외 근무 계산
 export function calcData({
   workTimes,
@@ -48,37 +66,68 @@ export function calcData({
     const workSchedule = workTimes[overtime.이름];
     // 요일
     const dayOfWeek = getDayOfWeek(overtime.근무일자);
+    let approveTime = 0;
     // overtime.이름이 key로 존재하고, 그 안의 소속이 overtime.부서와 같은지 확인
     if (index === 0 && workSchedule?.소속 === overtime.부서) {
       console.log(workSchedule, 'target');
       console.log(overtime, 'overtime');
       console.log(workSchedule[dayOfWeek], '요일');
-      console.log();
 
       const scheduleTime = workSchedule[dayOfWeek];
       const startTime = scheduleTime.split('~')[0]; // 근무 시작 시간
       const endTime = scheduleTime.split('~')[1]; // 근무 종료 시간
-      console.log(startTime, endTime, 'startTime, endTime');
+
       switch (overtime.근무구분) {
         case '연장': {
+          // 퇴근 시간 없으면 넘어가기
+          if (overtime.퇴근시간 === '') {
+            break;
+          }
           // 1. 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
-          const workEndTime = timeToMinutes(endTime);
-          const requestStartTime = timeToMinutes(overtime.신청시작시간);
-          const timeDiff = requestStartTime - workEndTime;
+          const timeDiff = calcTimeDiff(endTime, overtime.신청시작시간);
 
           if (timeDiff < 60) {
             errorMessages.push(
-              `❌ [연장] 규칙 위반: ${overtime.이름} ${overtime.근무일자}`,
+              `❌ [연장] 퇴근 후 1시간 위반: ${overtime.이름} ${overtime.근무일자}`,
             );
           } else {
             console.log(`✅ [연장] 규칙 통과: 근무 종료 후 ${timeDiff}분 경과`);
+
+            const requestedTime = calcTimeDiff(
+              overtime.신청시작시간,
+              overtime.신청종료시간,
+            );
+            const actualTime = calcTimeDiff(
+              overtime.신청시작시간,
+              overtime.퇴근시간,
+            );
+
+            if (actualTime >= requestedTime) {
+              console.log('신청한 시간만큼(그 이상) 근무함');
+              approveTime = requestedTime;
+            } else {
+              console.log('조기 퇴근');
+              approveTime = actualTime;
+            }
           }
+          console.log(approveTime, 'approveTime');
           break;
         }
         case '조기': {
+          // 출근시간 없으면 넘어가기
+          if (overtime.출근시간 === '') {
+            break;
+          }
+
           break;
         }
       }
+      console.log(approveTime % 60, 'approveTime % 60', approveTime);
+      overtime.인정시간 =
+        `${
+          Math.floor(approveTime / 60) > 4 ? 4 : Math.floor(approveTime / 60)
+        }시간` + (approveTime % 60 > 0 ? ` ${approveTime % 60}분` : '');
+      console.log(overtime, '인정시zz간');
     }
   });
 
