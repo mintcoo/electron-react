@@ -68,14 +68,16 @@ export function calcData({
     const dayOfWeek = getDayOfWeek(overtime.근무일자);
     let approveTime = 0;
     // overtime.이름이 key로 존재하고, 그 안의 소속이 overtime.부서와 같은지 확인
-    if (index === 0 && workSchedule?.소속 === overtime.부서) {
+    if (index === 13 && workSchedule?.소속 === overtime.부서) {
       console.log(workSchedule, 'target');
       console.log(overtime, 'overtime');
       console.log(workSchedule[dayOfWeek], '요일');
 
       const scheduleTime = workSchedule[dayOfWeek];
-      const startTime = scheduleTime.split('~')[0]; // 근무 시작 시간
-      const endTime = scheduleTime.split('~')[1]; // 근무 종료 시간
+      const startTime = scheduleTime.split('~')[0]; // 유연 근무 출근 시간
+      const endTime = scheduleTime.split('~')[1]; // 유연 근무 퇴근 시간
+      overtime.유연근무출근시간 = startTime;
+      overtime.유연근무퇴근시간 = endTime;
 
       switch (overtime.근무구분) {
         case '연장': {
@@ -83,13 +85,25 @@ export function calcData({
           if (overtime.퇴근시간 === '') {
             break;
           }
-          // 1. 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
+          // 신청종료시간이 22:00을 넘어가면 안됨
+          if (overtime.신청종료시간 > '22:00') {
+            errorMessages.push(
+              `❌ [연장] 신청종료시간이 22:00을 넘어감: ${overtime.이름} ${overtime.근무일자}`,
+            );
+            break;
+          }
+
+          // 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
           const timeDiff = calcTimeDiff(endTime, overtime.신청시작시간);
 
           if (timeDiff < 60) {
             errorMessages.push(
               `❌ [연장] 퇴근 후 1시간 위반: ${overtime.이름} ${overtime.근무일자}`,
             );
+            // 규칙 위반 시 인정 안 함
+            overtime.인정시작시간 = '';
+            overtime.인정종료시간 = '';
+            overtime.인정시간 = '';
           } else {
             console.log(`✅ [연장] 규칙 통과: 근무 종료 후 ${timeDiff}분 경과`);
 
@@ -101,13 +115,21 @@ export function calcData({
               overtime.신청시작시간,
               overtime.퇴근시간,
             );
+            overtime.추가근무시간 = actualTime;
+
+            // 인정시작시간은 항상 신청시작시간
+            overtime.인정시작시간 = overtime.신청시작시간;
 
             if (actualTime >= requestedTime) {
               console.log('신청한 시간만큼(그 이상) 근무함');
               approveTime = requestedTime;
+              // 신청한 시간만큼 근무했으므로 신청종료시간 그대로
+              overtime.인정종료시간 = overtime.신청종료시간;
             } else {
               console.log('조기 퇴근');
               approveTime = actualTime;
+              // 조기 퇴근했으므로 실제 퇴근시간으로 설정
+              overtime.인정종료시간 = overtime.퇴근시간;
             }
           }
           console.log(approveTime, 'approveTime');
@@ -119,14 +141,144 @@ export function calcData({
             break;
           }
 
+          // 신청종료시간이 유연근무출근시간을 넘어가면 안됨
+          if (overtime.신청종료시간 > overtime.유연근무출근시간) {
+            errorMessages.push(
+              `❌ [조기] 신청종료시간이 시간표를 넘어감: ${overtime.이름} ${overtime.근무일자}`,
+            );
+            break;
+          }
+          // 조기 출근 규칙 적용
+          const requestedTime = calcTimeDiff(
+            overtime.신청시작시간,
+            overtime.신청종료시간,
+          );
+          const actualTime = calcTimeDiff(
+            overtime.출근시간,
+            overtime.신청종료시간,
+          );
+          overtime.추가근무시간 = actualTime;
+
+          // 인정종료시간은 항상 신청종료시간 (유연근무 출근시간)
+          overtime.인정종료시간 = overtime.신청종료시간;
+
+          if (actualTime >= requestedTime) {
+            console.log('[조기] 신청한 시간만큼 근무함');
+            approveTime = requestedTime;
+            // 신청시작시간 그대로
+            overtime.인정시작시간 = overtime.신청시작시간;
+          } else {
+            console.log('[조기] 늦게 출근');
+            approveTime = actualTime;
+            // 실제 출근시간으로 설정
+            overtime.인정시작시간 = overtime.출근시간;
+          }
+
           break;
+        }
+        case '휴일': {
+          overtime.유연근무출근시간 = '23:59';
+          overtime.유연근무퇴근시간 = '00:00';
+
+          // 출퇴근 시간 둘다 없으면 패스
+          if (!overtime.출근시간 && !overtime.퇴근시간) {
+            break;
+          }
+
+          if (!overtime.출근시간 || !overtime.퇴근시간) {
+            // 둘 중 하나만 있으면 에러
+            errorMessages.push(
+              `❌ [휴일] 출퇴근 시간 불완전: ${overtime.이름} ${overtime.근무일자} `,
+            );
+            approveTime = 0;
+            break;
+          }
+
+          // 실제 근무시간 계산
+          const actualTime = calcTimeDiff(overtime.출근시간, overtime.퇴근시간);
+          overtime.추가근무시간 = actualTime;
+
+          let deduction = 0; // 공제 시간
+
+          // 공제 규칙
+          if (actualTime < 240) {
+            // 4시간 미만: 공제 없음
+            deduction = 0;
+            approveTime = actualTime;
+          } else if (actualTime < 480) {
+            // 4시간 이상 8시간 미만: 30분 공제
+            deduction = 30;
+            approveTime = actualTime - deduction;
+          } else {
+            // 8시간 이상: 1시간 공제
+            deduction = 60;
+            approveTime = actualTime - deduction;
+          }
+
+          overtime.인정시작시간 = overtime.출근시간;
+          overtime.인정종료시간 = overtime.퇴근시간;
+
+          break;
+        }
+        case '연장추가': {
+          // 퇴근 시간 없으면 넘어가기
+          if (overtime.퇴근시간 === '') {
+            break;
+          }
+          // 신청시작시간이 22:00보다 빠르면 안됨
+          if (overtime.신청시작시간 < '22:00') {
+            errorMessages.push(
+              `❌ [연장추가] 신청시작시간이 22:00보다 빠름: ${overtime.이름} ${overtime.근무일자}`,
+            );
+            overtime.인정시작시간 = '';
+            overtime.인정종료시간 = '';
+            approveTime = 0;
+            break;
+          }
+          const requestedTime = calcTimeDiff(
+            overtime.신청시작시간,
+            overtime.신청종료시간,
+          );
+          const actualTime = calcTimeDiff(
+            overtime.신청시작시간,
+            overtime.퇴근시간,
+          );
+          overtime.추가근무시간 = actualTime;
+
+          // 1시간 미만이면 인정 안 함
+          if (actualTime < 60) {
+            console.log(`❌ [연장추가] 1시간 미만: ${actualTime}분`);
+            overtime.인정시작시간 = '';
+            overtime.인정종료시간 = '';
+            overtime.공제사유 = '1시간 미만 근무';
+            approveTime = 0;
+          } else {
+            // 1시간 이상이면 인정
+            overtime.인정시작시간 = overtime.신청시작시간;
+
+            if (actualTime >= requestedTime) {
+              console.log('[연장추가] 신청한 시간만큼(그 이상) 근무함');
+              approveTime = requestedTime;
+              overtime.인정종료시간 = overtime.신청종료시간;
+            } else {
+              console.log('[연장추가] 조기 퇴근');
+              approveTime = actualTime;
+              overtime.인정종료시간 = overtime.퇴근시간;
+            }
+          }
         }
       }
       console.log(approveTime % 60, 'approveTime % 60', approveTime);
-      overtime.인정시간 =
-        `${
-          Math.floor(approveTime / 60) > 4 ? 4 : Math.floor(approveTime / 60)
-        }시간` + (approveTime % 60 > 0 ? ` ${approveTime % 60}분` : '');
+      // overtime.인정시간 =
+      //   `${
+      //     Math.floor(approveTime / 60) > 4 ? 4 : Math.floor(approveTime / 60)
+      //   }시간` + (approveTime % 60 > 0 ? ` ${approveTime % 60}분` : '');
+      overtime.인정시간 = approveTime;
+      if (overtime.근무구분 === '조기' || overtime.근무구분 === '연장') {
+        overtime['인정시간(조기, 연장)'] = overtime.인정시간;
+      } else {
+        overtime['인정시간(조기, 연장)'] = '';
+      }
       console.log(overtime, '인정시zz간');
     }
   });
