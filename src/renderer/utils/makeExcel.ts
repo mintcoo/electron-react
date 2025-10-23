@@ -236,11 +236,9 @@ export function changeCellStyle({
   font,
 }: any) {
   const newDataList: any[] = [];
-  console.log(data, 'data');
 
   // 데이터가 배열인지 단일인지 체크
   if (Array.isArray(data)) {
-    console.log('배열');
     data.forEach((el) => {
       if (el === '') {
         newDataList.push(el);
