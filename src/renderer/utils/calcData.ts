@@ -68,16 +68,20 @@ export function calcData({
     const dayOfWeek = getDayOfWeek(overtime.근무일자);
     let approveTime = 0;
     // overtime.이름이 key로 존재하고, 그 안의 소속이 overtime.부서와 같은지 확인
-    if (index === 13 && workSchedule?.소속 === overtime.부서) {
+    if (workSchedule?.소속 === overtime.부서) {
       console.log(workSchedule, 'target');
       console.log(overtime, 'overtime');
       console.log(workSchedule[dayOfWeek], '요일');
-
-      const scheduleTime = workSchedule[dayOfWeek];
-      const startTime = scheduleTime.split('~')[0]; // 유연 근무 출근 시간
-      const endTime = scheduleTime.split('~')[1]; // 유연 근무 퇴근 시간
-      overtime.유연근무출근시간 = startTime;
-      overtime.유연근무퇴근시간 = endTime;
+      if (overtime.근무구분 === '휴일') {
+        overtime.유연근무출근시간 = '00:00';
+        overtime.유연근무퇴근시간 = '23:59';
+      } else {
+        const scheduleTime = workSchedule[dayOfWeek];
+        const startTime = scheduleTime.split('~')[0]; // 유연 근무 출근 시간
+        const endTime = scheduleTime.split('~')[1]; // 유연 근무 퇴근 시간
+        overtime.유연근무출근시간 = startTime;
+        overtime.유연근무퇴근시간 = endTime;
+      }
 
       switch (overtime.근무구분) {
         case '연장': {
@@ -94,7 +98,10 @@ export function calcData({
           }
 
           // 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
-          const timeDiff = calcTimeDiff(endTime, overtime.신청시작시간);
+          const timeDiff = calcTimeDiff(
+            overtime.유연근무퇴근시간,
+            overtime.신청시작시간,
+          );
 
           if (timeDiff < 60) {
             errorMessages.push(
@@ -276,8 +283,14 @@ export function calcData({
       overtime.인정시간 = approveTime;
       if (overtime.근무구분 === '조기' || overtime.근무구분 === '연장') {
         overtime['인정시간(조기, 연장)'] = overtime.인정시간;
+      } else if (overtime.근무구분 === '연장추가') {
+        overtime['인정시간(평일 연장추가)'] = overtime.인정시간;
+      } else if (overtime.근무구분 === '휴일') {
+        overtime['인정시간(휴일)'] = overtime.인정시간;
       } else {
-        overtime['인정시간(조기, 연장)'] = '';
+        errorMessages.push(
+          `❌ [${overtime.근무구분}] 근무구분 오류: ${overtime.이름} ${overtime.근무일자}`,
+        );
       }
       console.log(overtime, '인정시zz간');
     }
