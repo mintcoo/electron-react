@@ -10,15 +10,7 @@ interface ICalcDataProps {
 // 요일 가져오기
 function getDayOfWeek(dateString: string): string {
   const date = new Date(dateString);
-  const weekdays = [
-    '일요일',
-    '월요일',
-    '화요일',
-    '수요일',
-    '목요일',
-    '금요일',
-    '토요일',
-  ];
+  const weekdays = ['일요일', '월요일', '화요일', '수요일', '목요일', '금요일'];
   return weekdays[date.getDay()];
 }
 
@@ -32,7 +24,6 @@ function timeToMinutes(time: string): number {
 function calcTimeDiff(startTime: string, endTime: string): number {
   let startMinutes = timeToMinutes(startTime);
   let endMinutes = timeToMinutes(endTime);
-  console.log(startMinutes, endMinutes, 'startMinuteㅋㅋㅋㅋs, endMinutes');
 
   // 종료시간이 시작시간보다 작으면 자정을 넘긴 것
   if (endMinutes < startMinutes) {
@@ -54,13 +45,6 @@ export function calcData({
   overtimeInfo,
 }: ICalcDataProps) {
   const errorMessages: string[] = [];
-  // // 데이터 들어갈 충분한 컬럼의 길이 상수
-  // const COLUMNS_LENGTH = 50;
-  // let START_INDEX = 0;
-  // // 빈 Row
-  // const emptyRow = Array(COLUMNS_LENGTH).fill('');
-  // 엑셀 만들 데이터
-  const excelData = [];
 
   overtimeInfo.forEach((overtime, index) => {
     const workSchedule = workTimes[overtime.이름];
@@ -69,9 +53,6 @@ export function calcData({
     let approveTime = 0;
     // overtime.이름이 key로 존재하고, 그 안의 소속이 overtime.부서와 같은지 확인
     if (workSchedule?.소속 === overtime.부서) {
-      console.log(workSchedule, 'target');
-      console.log(overtime, 'overtime');
-      console.log(workSchedule[dayOfWeek], '요일');
       if (overtime.근무구분 === '휴일') {
         overtime.유연근무출근시간 = '00:00';
         overtime.유연근무퇴근시간 = '23:59';
@@ -87,6 +68,7 @@ export function calcData({
         case '연장': {
           // 퇴근 시간 없으면 넘어가기
           if (overtime.퇴근시간 === '') {
+            overtime.추가근무시간 = 0;
             break;
           }
           // 신청종료시간이 22:00을 넘어가면 안됨
@@ -94,7 +76,7 @@ export function calcData({
             errorMessages.push(
               `❌ [연장] 신청종료시간이 22:00을 넘어감: ${overtime.이름} ${overtime.근무일자}`,
             );
-            break;
+            // break;
           }
 
           // 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
@@ -112,8 +94,6 @@ export function calcData({
             overtime.인정종료시간 = '';
             overtime.인정시간 = '';
           } else {
-            console.log(`✅ [연장] 규칙 통과: 근무 종료 후 ${timeDiff}분 경과`);
-
             const requestedTime = calcTimeDiff(
               overtime.신청시작시간,
               overtime.신청종료시간,
@@ -128,23 +108,21 @@ export function calcData({
             overtime.인정시작시간 = overtime.신청시작시간;
 
             if (actualTime >= requestedTime) {
-              console.log('신청한 시간만큼(그 이상) 근무함');
               approveTime = requestedTime;
               // 신청한 시간만큼 근무했으므로 신청종료시간 그대로
               overtime.인정종료시간 = overtime.신청종료시간;
             } else {
-              console.log('조기 퇴근');
               approveTime = actualTime;
               // 조기 퇴근했으므로 실제 퇴근시간으로 설정
               overtime.인정종료시간 = overtime.퇴근시간;
             }
           }
-          console.log(approveTime, 'approveTime');
           break;
         }
         case '조기': {
           // 출근시간 없으면 넘어가기
           if (overtime.출근시간 === '') {
+            overtime.추가근무시간 = 0;
             break;
           }
 
@@ -170,12 +148,10 @@ export function calcData({
           overtime.인정종료시간 = overtime.신청종료시간;
 
           if (actualTime >= requestedTime) {
-            console.log('[조기] 신청한 시간만큼 근무함');
             approveTime = requestedTime;
             // 신청시작시간 그대로
             overtime.인정시작시간 = overtime.신청시작시간;
           } else {
-            console.log('[조기] 늦게 출근');
             approveTime = actualTime;
             // 실제 출근시간으로 설정
             overtime.인정시작시간 = overtime.출근시간;
@@ -201,29 +177,68 @@ export function calcData({
             break;
           }
 
-          // 실제 근무시간 계산
-          const actualTime = calcTimeDiff(overtime.출근시간, overtime.퇴근시간);
-          overtime.추가근무시간 = actualTime;
+          // 신청시간과 실제 시간 비교
+          const requestStartMinutes = timeToMinutes(overtime.신청시작시간);
+          const actualStartMinutes = timeToMinutes(overtime.출근시간);
+          const requestEndMinutes = timeToMinutes(overtime.신청종료시간);
+          const actualEndMinutes = timeToMinutes(overtime.퇴근시간);
 
-          let deduction = 0; // 공제 시간
+          // 1. 인정 시작시간 결정 (늦게 출근했으면 실제 출근시간, 일찍 출근했으면 신청시작시간)
+          let approvedStartTime = overtime.신청시작시간;
+          if (actualStartMinutes > requestStartMinutes) {
+            // 늦게 출근
+            approvedStartTime = overtime.출근시간;
+          } else if (actualStartMinutes < requestStartMinutes) {
+            // 일찍 출근 (신청시작시간부터만 인정)
+          }
 
-          // 공제 규칙
-          if (actualTime < 240) {
+          // 2. 실제 근무시간 계산 (공제 적용 전)
+          const actualWorkTime = calcTimeDiff(
+            approvedStartTime,
+            overtime.퇴근시간,
+          );
+          overtime.추가근무시간 = actualWorkTime;
+
+          // 3. 공제 규칙 (실제 근무시간 기준)
+          let deduction = 0;
+          if (actualWorkTime < 240) {
             // 4시간 미만: 공제 없음
             deduction = 0;
-            approveTime = actualTime;
-          } else if (actualTime < 480) {
+          } else if (actualWorkTime < 480) {
             // 4시간 이상 8시간 미만: 30분 공제
             deduction = 30;
-            approveTime = actualTime - deduction;
           } else {
             // 8시간 이상: 1시간 공제
             deduction = 60;
-            approveTime = actualTime - deduction;
           }
 
-          overtime.인정시작시간 = overtime.출근시간;
-          overtime.인정종료시간 = overtime.퇴근시간;
+          // 4. 실제 퇴근시간에서 공제시간 빼기
+          const deductedEndMinutes = actualEndMinutes - deduction;
+
+          const minutesToTime = (minutes: number): string => {
+            const hours = Math.floor(minutes / 60);
+            const mins = minutes % 60;
+            return `${String(hours).padStart(2, '0')}:${String(mins).padStart(
+              2,
+              '0',
+            )}`;
+          };
+
+          const deductedEndTime = minutesToTime(deductedEndMinutes);
+
+          // 5. 인정 종료시간 결정 (공제 후 시간과 신청종료시간 중 이른 시간)
+          let approvedEndTime = deductedEndTime;
+          if (deductedEndMinutes > requestEndMinutes) {
+            // 공제 후에도 신청종료시간보다 늦으면 신청종료시간까지만
+            approvedEndTime = overtime.신청종료시간;
+          } else {
+          }
+
+          // 6. 최종 인정시간 계산
+          approveTime = calcTimeDiff(approvedStartTime, approvedEndTime);
+
+          overtime.인정시작시간 = approvedStartTime;
+          overtime.인정종료시간 = approvedEndTime;
 
           break;
         }
@@ -257,25 +272,22 @@ export function calcData({
             console.log(`❌ [연장추가] 1시간 미만: ${actualTime}분`);
             overtime.인정시작시간 = '';
             overtime.인정종료시간 = '';
-            overtime.공제사유 = '1시간 미만 근무';
             approveTime = 0;
           } else {
             // 1시간 이상이면 인정
             overtime.인정시작시간 = overtime.신청시작시간;
 
             if (actualTime >= requestedTime) {
-              console.log('[연장추가] 신청한 시간만큼(그 이상) 근무함');
               approveTime = requestedTime;
               overtime.인정종료시간 = overtime.신청종료시간;
             } else {
-              console.log('[연장추가] 조기 퇴근');
               approveTime = actualTime;
               overtime.인정종료시간 = overtime.퇴근시간;
             }
           }
         }
       }
-      console.log(approveTime % 60, 'approveTime % 60', approveTime);
+
       // overtime.인정시간 =
       //   `${
       //     Math.floor(approveTime / 60) > 4 ? 4 : Math.floor(approveTime / 60)
@@ -286,36 +298,79 @@ export function calcData({
       } else if (overtime.근무구분 === '연장추가') {
         overtime['인정시간(평일 연장추가)'] = overtime.인정시간;
       } else if (overtime.근무구분 === '휴일') {
-        overtime['인정시간(휴일)'] = overtime.인정시간;
+        if (overtime.인정시간 < 480) {
+          overtime['인정시간(휴일 8시간 미만)'] = overtime.인정시간;
+        }
       } else {
         errorMessages.push(
           `❌ [${overtime.근무구분}] 근무구분 오류: ${overtime.이름} ${overtime.근무일자}`,
         );
       }
-      console.log(overtime, '인정시zz간');
     }
   });
 
+  exportToExcel(overtimeInfo);
+
+  return errorMessages;
+}
+
+export const exportToExcel = (overtimeInfoList: any) => {
+  // // 데이터 들어갈 충분한 컬럼의 길이 상수
+  const COLUMNS_LENGTH = 50;
+  let START_INDEX = 0;
+  // // 빈 Row
+  const emptyRow = Array(COLUMNS_LENGTH).fill('');
+  // 엑셀 만들 데이터
+  const excelData: any[] = [];
+
   // excelData.push([...emptyRow]);
 
-  // const STAFF_INFO_TITLE = [
-  //   '번호',
-  //   '소속',
-  //   '이름',
-  //   '직책',
-  //   '월요일',
-  //   '화요일',
-  //   '수요일',
-  //   '목요일',
-  //   '금요일',
-  //   '기간',
-  //   '직급',
-  //   '직급2',
-  // ];
-  // excelData.push(
-  //   changeCellStyle({ data: STAFF_INFO_TITLE, fill: 'lightGray' }),
-  // );
-  // 첫 번째 시트 데이터
+  const HEADER_TITLE = [
+    '이름',
+    '부서',
+    '직급',
+    '근무일자',
+    '근무구분',
+    '신청시작시간',
+    '신청종료시간',
+    '출근시간',
+    '퇴근시간',
+    '유연근무출근시간',
+    '유연근무퇴근시간',
+    '인정시작시간',
+    '인정종료시간',
+    '추가근무시간',
+    '인정시간',
+    '인정시간(조기, 연장)',
+    '인정시간(평일 연장추가)',
+    '인정시간(휴일 8시간 미만)',
+  ];
+  excelData.push(changeCellStyle({ data: HEADER_TITLE, fill: 'lightGray' }));
+
+  // 데이터 행들
+  overtimeInfoList.forEach((overtimeInfoData: any) => {
+    const row = [
+      changeCellStyle({ data: overtimeInfoData.이름 }),
+      changeCellStyle({ data: overtimeInfoData.부서 }),
+      changeCellStyle({ data: overtimeInfoData.직급 }),
+      changeCellStyle({ data: overtimeInfoData.근무일자 }),
+      changeCellStyle({ data: overtimeInfoData.근무구분 }),
+      changeCellStyle({ data: overtimeInfoData.신청시작시간 }),
+      changeCellStyle({ data: overtimeInfoData.신청종료시간 }),
+      changeCellStyle({ data: overtimeInfoData.출근시간 }),
+      changeCellStyle({ data: overtimeInfoData.퇴근시간 }),
+      changeCellStyle({ data: overtimeInfoData.유연근무출근시간 }),
+      changeCellStyle({ data: overtimeInfoData.유연근무퇴근시간 }),
+      changeCellStyle({ data: overtimeInfoData.인정시작시간 }),
+      changeCellStyle({ data: overtimeInfoData.인정종료시간 }),
+      changeCellStyle({ data: overtimeInfoData.추가근무시간 }),
+      changeCellStyle({ data: overtimeInfoData.인정시간 }),
+      changeCellStyle({ data: overtimeInfoData['인정시간(조기, 연장)'] }),
+      changeCellStyle({ data: overtimeInfoData['인정시간(평일 연장추가)'] }),
+      changeCellStyle({ data: overtimeInfoData['인정시간(휴일)'] }),
+    ];
+    excelData.push(row);
+  });
 
   // excelData.push(
   //   changeCellStyle({
@@ -333,8 +388,17 @@ export function calcData({
   //   allColumnsLength: 10,
   // });
 
-  return errorMessages;
-}
+  // excelData.push(data);
+  console.log(excelData, 'excelData');
+  singleExcelExport({
+    data: excelData,
+    fileName: '임직원_유연근무_현황',
+    extendWidth: 12,
+    reduceWidth: 0,
+    adjustLength: 20,
+    allColumnsLength: 20,
+  });
+};
 
 // PT 수당 내역 엑셀
 // export const exportToPtSalaryExcel = (data, fileName, baseDate, type) => {
