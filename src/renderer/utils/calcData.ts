@@ -1,4 +1,8 @@
-import { changeCellStyle, singleExcelExport } from './makeExcel';
+import {
+  changeCellStyle,
+  multiExcelExport,
+  singleExcelExport,
+} from './makeExcel';
 
 interface ICalcDataProps {
   workTimes: any[];
@@ -361,59 +365,61 @@ export const exportToExcel = (overtimeInfoList: any) => {
     '인정시간(평일 연장추가)',
     '인정시간(휴일 8시간 미만)',
   ];
-  excelData.push(changeCellStyle({ data: HEADER_TITLE, fill: 'lightGray' }));
+  // 이름별로 데이터 그룹화
+  const groupedByName: { [key: string]: any[] } = {};
 
-  // 데이터 행들
   overtimeInfoList.forEach((overtimeInfoData: any) => {
-    const row = [
-      changeCellStyle({ data: overtimeInfoData.이름 }),
-      changeCellStyle({ data: overtimeInfoData.부서 }),
-      changeCellStyle({ data: overtimeInfoData.직급 }),
-      changeCellStyle({ data: overtimeInfoData.근무일자 }),
-      changeCellStyle({ data: overtimeInfoData.근무구분 }),
-      changeCellStyle({ data: overtimeInfoData.신청시작시간 }),
-      changeCellStyle({ data: overtimeInfoData.신청종료시간 }),
-      changeCellStyle({ data: overtimeInfoData.출근시간 }),
-      changeCellStyle({ data: overtimeInfoData.퇴근시간 }),
-      changeCellStyle({ data: overtimeInfoData.유연근무출근시간 }),
-      changeCellStyle({ data: overtimeInfoData.유연근무퇴근시간 }),
-      changeCellStyle({ data: overtimeInfoData.인정시작시간 }),
-      changeCellStyle({ data: overtimeInfoData.인정종료시간 }),
-      changeCellStyle({ data: overtimeInfoData.추가근무시간 }),
-      changeCellStyle({ data: overtimeInfoData.인정시간 }),
-      changeCellStyle({ data: overtimeInfoData['인정시간(조기, 연장)'] }),
-      changeCellStyle({ data: overtimeInfoData['인정시간(평일 연장추가)'] }),
-      changeCellStyle({ data: overtimeInfoData['인정시간(휴일)'] }),
-    ];
-    excelData.push(row);
+    const name = overtimeInfoData.이름;
+    if (!groupedByName[name]) {
+      groupedByName[name] = [];
+    }
+    groupedByName[name].push(overtimeInfoData);
   });
 
-  // excelData.push(
-  //   changeCellStyle({
-  //     data: ['배수', '분환산', '시간환산', '인정시간', '특근매식'],
-  //     fill: 'lightBlue',
-  //   }),
-  // );
+  // dataSet 생성
+  const dataSet: Array<{ data: any[]; sheetName: string }> = [];
 
-  // singleExcelExport({
-  //   data: excelData,
-  //   fileName: '임직원_유연근무_현황',
-  //   extendWidth: 10,
-  //   reduceWidth: 10,
-  //   adjustLength: 10,
-  //   allColumnsLength: 10,
-  // });
+  Object.keys(groupedByName).forEach((name) => {
+    const excelData: any[] = [];
 
-  // excelData.push(data);
-  console.log(excelData, 'excelData');
-  singleExcelExport({
-    data: excelData,
-    fileName: '임직원_유연근무_현황',
-    extendWidth: 12,
-    reduceWidth: 0,
-    adjustLength: 20,
-    allColumnsLength: 20,
+    // 헤더 추가
+    excelData.push(changeCellStyle({ data: HEADER_TITLE, fill: 'lightBlue' }));
+
+    // 해당 이름의 데이터 행들 추가
+    groupedByName[name].forEach((overtimeInfoData: any) => {
+      const row = [
+        changeCellStyle({ data: overtimeInfoData.이름 }),
+        changeCellStyle({ data: overtimeInfoData.부서 }),
+        changeCellStyle({ data: overtimeInfoData.직급 }),
+        changeCellStyle({ data: overtimeInfoData.근무일자 }),
+        changeCellStyle({ data: overtimeInfoData.근무구분 }),
+        changeCellStyle({ data: overtimeInfoData.신청시작시간 }),
+        changeCellStyle({ data: overtimeInfoData.신청종료시간 }),
+        changeCellStyle({ data: overtimeInfoData.출근시간 }),
+        changeCellStyle({ data: overtimeInfoData.퇴근시간 }),
+        changeCellStyle({ data: overtimeInfoData.유연근무출근시간 }),
+        changeCellStyle({ data: overtimeInfoData.유연근무퇴근시간 }),
+        changeCellStyle({ data: overtimeInfoData.인정시작시간 }),
+        changeCellStyle({ data: overtimeInfoData.인정종료시간 }),
+        changeCellStyle({ data: overtimeInfoData.추가근무시간 }),
+        changeCellStyle({ data: overtimeInfoData.인정시간 }),
+        changeCellStyle({ data: overtimeInfoData['인정시간(조기, 연장)'] }),
+        changeCellStyle({ data: overtimeInfoData['인정시간(평일 연장추가)'] }),
+        changeCellStyle({ data: overtimeInfoData['인정시간(휴일)'] }),
+      ];
+      excelData.push(row);
+    });
+
+    dataSet.push({
+      data: excelData,
+      sheetName: name, // 이름을 시트명으로 사용
+    });
   });
+
+  console.log(dataSet, 'dataSet');
+
+  // multiExcelExport 함수 사용 (여러 시트 생성)
+  multiExcelExport(dataSet, '임직원_유연근무_현황', 12, 0, 20, 20);
 };
 
 // PT 수당 내역 엑셀
