@@ -46,7 +46,8 @@ export function calcData({
 }: ICalcDataProps) {
   const errorMessages: string[] = [];
 
-  overtimeInfo.forEach((overtime, index) => {
+  for (let i = 0; i < overtimeInfo.length; i += 1) {
+    const overtime = overtimeInfo[i];
     const workSchedule = workTimes[overtime.이름];
     // 요일
     const dayOfWeek = getDayOfWeek(overtime.근무일자);
@@ -76,7 +77,18 @@ export function calcData({
             errorMessages.push(
               `❌ [연장] 신청종료시간이 22:00을 넘어감: ${overtime.이름} ${overtime.근무일자}`,
             );
-            // break;
+            // 연장추가 데이터 생성
+            const additionalOvertimeData = {
+              ...overtime,
+              근무구분: '연장추가',
+              신청시작시간: '22:00',
+              // 신청종료시간은 그대로 유지
+            };
+
+            // 원본 연장 데이터는 22:00까지만
+            overtime.신청종료시간 = '22:00';
+            // 바로 다음 index에 추가
+            overtimeInfo.splice(i + 1, 0, additionalOvertimeData);
           }
 
           // 스케줄상 근무 종료시간 이후 1시간동안은 신청 시작시간이 불가능함
@@ -89,33 +101,37 @@ export function calcData({
             errorMessages.push(
               `❌ [연장] 퇴근 후 1시간 위반: ${overtime.이름} ${overtime.근무일자}`,
             );
-            // 규칙 위반 시 인정 안 함
-            overtime.인정시작시간 = '';
-            overtime.인정종료시간 = '';
-            overtime.인정시간 = '';
+
+            // 유연근무퇴근시간 + 1시간으로 인정시작시간 조정
+            const endMinutes = timeToMinutes(overtime.유연근무퇴근시간);
+            const adjustedStartMinutes = endMinutes + 60;
+            const hours = Math.floor(adjustedStartMinutes / 60);
+            const mins = adjustedStartMinutes % 60;
+            overtime.인정시작시간 = `${String(hours).padStart(2, '0')}:${String(
+              mins,
+            ).padStart(2, '0')}`;
           } else {
-            const requestedTime = calcTimeDiff(
-              overtime.신청시작시간,
-              overtime.신청종료시간,
-            );
-            const actualTime = calcTimeDiff(
-              overtime.신청시작시간,
-              overtime.퇴근시간,
-            );
-            overtime.추가근무시간 = actualTime;
-
-            // 인정시작시간은 항상 신청시작시간
+            // 규칙 통과 시 신청시작시간 그대로
             overtime.인정시작시간 = overtime.신청시작시간;
+          }
 
-            if (actualTime >= requestedTime) {
-              approveTime = requestedTime;
-              // 신청한 시간만큼 근무했으므로 신청종료시간 그대로
-              overtime.인정종료시간 = overtime.신청종료시간;
-            } else {
-              approveTime = actualTime;
-              // 조기 퇴근했으므로 실제 퇴근시간으로 설정
-              overtime.인정종료시간 = overtime.퇴근시간;
-            }
+          // 공통 로직 (timeDiff와 관계없이 실행)
+          const requestedTime = calcTimeDiff(
+            overtime.인정시작시간, // 조정된 시작시간 사용
+            overtime.신청종료시간,
+          );
+          const actualTime = calcTimeDiff(
+            overtime.인정시작시간, // 조정된 시작시간 사용
+            overtime.퇴근시간,
+          );
+          overtime.추가근무시간 = actualTime;
+
+          if (actualTime >= requestedTime) {
+            approveTime = requestedTime;
+            overtime.인정종료시간 = overtime.신청종료시간;
+          } else {
+            approveTime = actualTime;
+            overtime.인정종료시간 = overtime.퇴근시간;
           }
           break;
         }
@@ -307,8 +323,8 @@ export function calcData({
         );
       }
     }
-  });
-
+  }
+  console.log(overtimeInfo, '!@$!@#!@$!@%!@');
   exportToExcel(overtimeInfo);
 
   return errorMessages;
